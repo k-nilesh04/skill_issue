@@ -112,15 +112,34 @@ mkdirSync(DB_DIR, { recursive: true });
 const DB_PATH = path.join(DB_DIR, "scout.db");
 
 const globalForDb = globalThis as unknown as { __scoutDb?: DatabaseSync };
-export const db: DatabaseSync =
-  globalForDb.__scoutDb ??
-  (() => {
-    const d = new DatabaseSync(DB_PATH);
-    d.exec("PRAGMA journal_mode = WAL;");
-    d.exec(SCHEMA);
-    globalForDb.__scoutDb = d;
-    return d;
-  })();
+
+function initializeDb(): DatabaseSync {
+  const existing = globalForDb.__scoutDb;
+  if (existing) return existing;
+
+  const d = new DatabaseSync(DB_PATH);
+  d.exec("PRAGMA journal_mode = WAL;");
+  d.exec("PRAGMA busy_timeout = 5000;");
+  d.exec(SCHEMA);
+  globalForDb.__scoutDb = d;
+  return d;
+}
+
+export function getDb(): DatabaseSync {
+  return globalForDb.__scoutDb ?? initializeDb();
+}
+
+export const db = new Proxy({} as DatabaseSync, {
+  get(_target, prop) {
+    const instance = getDb();
+    const value = Reflect.get(instance as object, prop as PropertyKey);
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
+  set(_target, prop, value) {
+    Reflect.set(getDb() as object, prop as PropertyKey, value);
+    return true;
+  },
+});
 
 
 export function nowIso(): string {

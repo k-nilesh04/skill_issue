@@ -20,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!runA || !runB) {
     const valid = runs.slice(0, 2);
     runB = runB || valid[0]?.id;
-    runA = runA || valid[1]?.id ?? valid[0]?.id;
+    runA = runA || (valid[1]?.id ?? valid[0]?.id);
   }
   const a = runs.find((r) => r.id === runA);
   const b = runs.find((r) => r.id === runB);
